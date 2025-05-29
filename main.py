@@ -32,7 +32,6 @@ class ProductSelectionRequest(BaseModel):
     product_names: str
     quantities: str
     business_id: str
-    biller_id:str
     User_id:str
     # e.g., "strip", "tablet", etc.
 class businessEntity(BaseModel):
@@ -252,16 +251,16 @@ async def get_selected_customer(request:ProductSelectionRequest):
         # Step 3: Handle multiple customer matches
        
         if customer_data is None:
-            return {"message": "No products found matching the provided names.","mongo_config":uri,"customer_name": customer_name, "product_name": product_data, "quantities": quantities, "unit_type": unit_type, "store": store , "business_id": business_id, "user_id": user_id}
+            return {"message": "No products found matching the provided names.","mongo_config":uri,"customer_name": customer_name, "product_name": product_data, "quantities": quantities, "store": store , "business_id": business_id, "user_id": user_id}
         elif isinstance(customer_data, dict) and "match_customer_names" in customer_data:
-            return { "message": "Multiple products found. Please select one.","mongo_config":uri,"customer_name": customer_data["match_customer_names"], "product_name": product_names, "quantities": quantities, "unit_type": unit_type,"store": store , "business_id": business_id, "user_id": user_id}
+            return { "message": "Multiple products found. Please select one.","mongo_config":uri,"customer_name": customer_data["match_customer_names"], "product_name": product_names, "quantities": quantities,"store": store , "business_id": business_id, "user_id": user_id}
         if product_data is None:
-            return {"message": "No products found matching the provided names.","mongo_config":uri,"customer_name": customer_name, "product_name": product_names, "quantities": quantities, "unit_type": unit_type,"store": store , "business_id": business_id, "user_id": user_id}
+            return {"message": "No products found matching the provided names.","mongo_config":uri,"customer_name": customer_name, "product_name": product_names, "quantities": quantities,"store": store , "business_id": business_id, "user_id": user_id}
         # Step 5: If all matches are perfect, generate the invoice
         names=product_names.split(",")
         if None in product_data:
             i=product_data.index(None)
-            return{"message": f"No products found matching the provided name {names[i]} .","mongo_config":uri,"customer_name": customer_name, "product_name": product_names, "quantities": quantities, "unit_type": unit_type,"store": store , "business_id": business_id, "user_id": user_id}
+            return{"message": f"No products found matching the provided name {names[i]} .","mongo_config":uri,"customer_name": customer_name, "product_name": product_names, "quantities": quantities, "store": store , "business_id": business_id, "user_id": user_id}
         print(customer_data, product_data, quantities, store, business_id)
         return create_invoice(customer_data, product_data, quantities,store ,biller_id, user_id)
 
