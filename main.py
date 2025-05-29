@@ -13,34 +13,36 @@ import json
 load_dotenv()
 GROQ_API_KEY = os.getenv("api_key")
 uri=os.getenv("mango_db")
-
 # ========== MongoDB Setup ========== 
-client = MongoClient(uri)
-db = client["kaamkaz"]
-
+'''client = None
+db = None
 # Collections
-customers = db["business_directory"]
-products = db["products"]
-businwess_enities = db["business_entities"]
-user_id='645a0937a7e05345f278f136'
+customers = None
+products = None
+businwess_enities = None
+challans=None
+#user_id='645a0937a7e05345f278f136'
+'''
 # ========== Groq LLaMA Client ========== 
 groq_client = Groq(api_key=GROQ_API_KEY)
-
 # ========== FastAPI Setup ========== 
 app = FastAPI()
-
 # ========== Models for Request/Response ========== 
 class ChatRequest(BaseModel):
+    mongo_config:dict
     user_input: str
     business_id: str
     biller_id:str
+    user_id:str
 class ProductSelectionRequest(BaseModel):
+    mongo_config:dict
     store:str
     customer_name: str
     product_names: str
     quantities: str
     business_id: str
     biller_id:str
+    User_id:str
     # e.g., "strip", "tablet", etc.
 class businessEntity(BaseModel):
     businessName: str
@@ -48,17 +50,13 @@ class businessEntity(BaseModel):
     email: str
     phone: str
     address: str
-
 # MongoDB ObjectId as string
-
 class TaxDetail(BaseModel):
     rate: float
     amount: float
-
 class Tax(BaseModel):
     sgst: TaxDetail
     cgst: TaxDetail
-
 class Entry(BaseModel):
     productId: str
     productName: str
@@ -66,18 +64,15 @@ class Entry(BaseModel):
     productQuantity: int
     taxIncluded: bool
     tax: Tax
-
 class Discount(BaseModel):
     rate: float
     amount: float
-
 class BillerDetails(BaseModel):
     businessName: str
     ownerName: str
     email: str
     phone: str
     address: str
-
 class InvoiceResponseModel(BaseModel):
     userId: str # Optional user ID, can be None if not applicable
     businessName: str
@@ -99,7 +94,19 @@ class InvoiceResponseModel(BaseModel):
         json_encoders = {
             ObjectId: str
         }
+
+
 # ========== AI Extraction ========== 
+def load_db(uri):
+    global client, db, customers, products, businwess_enities,challans
+
+    client = MongoClient(uri["uri"])
+    db = client[uri["database"]]
+    collections = uri["collections"]
+    customers = db[collections[2]]
+    products = db[collections[0]]
+    businwess_enities = db[collections[1]]
+    challans=db[collections[3]]
 def extract_invoice_data(user_text: str):
     prompt = f"""
 You are an AI assistant for generating invoices and assisting users.
@@ -136,7 +143,7 @@ Respond ONLY with JSON object .
         return {"reply": cleaned}
 
 # ========== Mongo Data Fetch ========== 
-def fetch_data_from_mongo(customer_name, product_names,business_id):
+def fetch_data_from_mongo(customer_name, product_names,business_id, user_id):
     matched_customers = list(customers.find({
     "business_entity_id": ObjectId(business_id),
     "name": {"$regex": customer_name, "$options": "i"}
@@ -165,7 +172,7 @@ def fetch_data_from_mongo(customer_name, product_names,business_id):
     return customer_data, product_data
 
 # ========== Invoice Generator ========== 
-def create_invoice(customer_data, product_data_list, quantities_raw,store,biller_id):
+def create_invoice(customer_data, product_data_list, quantities_raw,store,biller_id,user_id):
     quantities = [int(q.strip()) for q in str(quantities_raw).split(",")]
     document = businwess_enities.find_one({'_id':ObjectId(biller_id)})
     print("document",document)
@@ -207,8 +214,8 @@ def create_invoice(customer_data, product_data_list, quantities_raw,store,biller
         )
 
         items.append(entry)
-    collection = db["challans"]
-    document_count = collection.count_documents({})
+
+    document_count = challans.count_documents({})
     challan_number = f"INV-{document_count + 1:06d}"
     discount_rate = 5
     discount_amount = round(final_amount * discount_rate / 100, 2)
@@ -232,21 +239,24 @@ def create_invoice(customer_data, product_data_list, quantities_raw,store,biller
     _v=4
     )
     try:
-        collection.insert_one(invoice.dict())
+        challans.insert_one(invoice.dict())
         return {"message": f"Invoice generated successfully for {customer_data['name']} of Rs {payable_amount} bill no {challan_number}" }
     except Exception as e:
         return {"message": f"Error generating invoice: {str(e)}"}
 @app.post("/selected_customer")
 async def get_selected_customer(request:ProductSelectionRequest):
+    uri= request.mongo_config
     store= request.store
     customer_name = request.customer_name
     product_names = request.product_names
     quantities = request.quantities
     business_id = request.business_id
     biller_id = request.biller_id
+    user_id = request.User_id
+    load_db(uri)
     try:
         # Step 2: Fetch customer and product data from MongoDB
-        customer_data, product_data = fetch_data_from_mongo(customer_name, product_names,business_id)
+        customer_data, product_data = fetch_data_from_mongo(customer_name, product_names,business_id,user_id)
         
         # Step 3: Handle multiple customer matches
         if customer_data is None:
@@ -267,9 +277,11 @@ async def get_selected_customer(request:ProductSelectionRequest):
 @app.post("/generate_invoice")
 async def generate_invoice(request: ChatRequest):
     user_input = request.user_input
-    
+    uri= request.mongo_config
     business_id = request.business_id
     biller_id = request.biller_id
+    user_id= request.user_id
+    load_db(uri)
     try:
         # Step 1: Extract the invoice data from the user input using the AI model
         extracted = extract_invoice_data(user_input)
@@ -282,7 +294,7 @@ async def generate_invoice(request: ChatRequest):
 
         # Step 2: Fetch customer and product data from MongoDB
         
-        customer_data, product_data = fetch_data_from_mongo(customer_name, product_names,business_id)
+        customer_data, product_data = fetch_data_from_mongo(customer_name, product_names,business_id, user_id)
         # Step 3: Handle multiple customer matches
         
         if customer_data is None:
@@ -297,6 +309,6 @@ async def generate_invoice(request: ChatRequest):
             i=product_data.index(None)
             return{"message": f"No products found matching the provided name {names[i]} .","customer_name": customer_name, "product_name": product_names, "quantities": quantities, "unit_type": unit_type}
         print(customer_data, product_data, quantities, store, business_id)
-        return create_invoice(customer_data, product_data, quantities,store ,biller_id)
+        return create_invoice(customer_data, product_data, quantities,store ,biller_id, user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
