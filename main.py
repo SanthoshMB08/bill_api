@@ -24,7 +24,7 @@ db = client["kaamkaz"]
 customers = db["business_directory"]
 products = db["products"]
 businwess_enities = db["business_entities"]
-
+user_id='645a0937a7e05345f278f136'
 # ========== Groq LLaMA Client ========== 
 groq_client = Groq(api_key=GROQ_API_KEY)
 
@@ -153,7 +153,7 @@ def fetch_data_from_mongo(customer_name, product_names,business_id):
 
     product_list = [name.strip() for name in product_names.split(",")]
     
-    product_data = [products.find_one({'productName': {'$regex': name, '$options': 'i'}}) for name in product_list]
+    product_data = [products.find_one({'productName': {'$regex': name, '$options': 'i'},'shopkeeperId': ObjectId(user_id)}) for name in product_list]
    
     '''
     if len(product) == 1:
@@ -217,7 +217,7 @@ def create_invoice(customer_data, product_data_list, quantities_raw,store,biller
     payable_amount = round(final_amount - discount_amount, 2)
     invoice = InvoiceResponseModel(
      # or str(ObjectId()) if using MongoDB
-    userId=str(ObjectId("660f8bd71407f98fd9217723")),  # Optional user ID, can be None if not applicable
+    userId=str(ObjectId(user_id)),  # Optional user ID, can be None if not applicable
     businessName=store,
     customerName=customer_data['name'],
     customerPhone=customer_data['phone_number'],
