@@ -12,7 +12,6 @@ import json
 # ========== Environment Variables ========== 
 load_dotenv()
 GROQ_API_KEY = os.getenv("api_key")
-uri=os.getenv("mango_db")
 # ========== MongoDB Setup ========== 
 
 # ========== Groq LLaMA Client ========== 
@@ -84,8 +83,6 @@ class InvoiceResponseModel(BaseModel):
         json_encoders = {
             ObjectId: str
         }
-
-
 # ========== AI Extraction ========== 
 def load_db(uri):
     global client, db, customers, products, businwess_enities,challans
@@ -124,7 +121,7 @@ Respond ONLY with JSON object .
     reply_text = response.choices[0].message.content.strip()
     cleaned = reply_text.strip().strip("`").strip()
     try:
-        print(f"AI Response: {cleaned}")  # Debugging line to see the AI response
+      # Debugging line to see the AI response
         data=json.loads(cleaned)  
         # Debugging line to see the AI response
         return data
@@ -160,21 +157,16 @@ def fetch_data_from_mongo(customer_name, product_names,business_id, user_id):
 ''' 
     
     return customer_data, product_data
-
 # ========== Invoice Generator ========== 
 def create_invoice(customer_data, product_data_list, quantities_raw,store,biller_id,user_id):
     quantities = [int(q.strip()) for q in str(quantities_raw).split(",")]
     document = businwess_enities.find_one({'_id':ObjectId(biller_id)})
-    print("document",document)
     billerDetails = BillerDetails(
         businessName=document["business_name"],
         ownerName="Anand Bora",
         email=document["email"],
         phone=document["phone_number"],
         address=document["business_address"])
-   
-        
-    
     final_amount=0
     items = []
     for product, qty in zip(product_data_list, quantities):
@@ -183,14 +175,12 @@ def create_invoice(customer_data, product_data_list, quantities_raw,store,biller
         price = product['pricePerUnit']  # Adjust if 'is_strip' logic is needed
         cgst_percent = product['taxPercentages']['cgst'] / 100
         sgst_percent = product['taxPercentages']['sgst'] / 100
-
         subtotal = round(qty * price, 2)
         cgst = round(subtotal * cgst_percent, 2)
         sgst = round(subtotal * sgst_percent, 2)
         tax_total = round(cgst + sgst, 2)
         total = subtotal + cgst + sgst
         final_amount += total
-
         entry = Entry(
         productId=str(product['_id']),
         productName=product['productName'],
@@ -200,11 +190,8 @@ def create_invoice(customer_data, product_data_list, quantities_raw,store,biller
         tax=Tax(
             sgst=TaxDetail(rate=product['taxPercentages']['sgst'], amount=sgst),
             cgst=TaxDetail(rate=product['taxPercentages']['cgst'], amount=cgst)
-            )
-        )
-
+            ))
         items.append(entry)
-
     document_count = challans.count_documents({})
     challan_number = f"INV-{document_count + 1:06d}"
     discount_rate = 5
@@ -226,8 +213,7 @@ def create_invoice(customer_data, product_data_list, quantities_raw,store,biller
     billerDetails= billerDetails,
     createdAt=datetime.now(),
     updatedAt=datetime.now(),
-    _v=4
-    )
+    _v=4)
     try:
         challans.insert_one(invoice.dict())
         return {"message": f"Invoice generated successfully for {customer_data['name']} of Rs {payable_amount} bill no {challan_number}" }
@@ -247,9 +233,7 @@ async def get_selected_customer(request:ProductSelectionRequest):
     try:
         # Step 2: Fetch customer and product data from MongoDB
         customer_data, product_data = fetch_data_from_mongo(customer_name, product_names,business_id,user_id)
-        
         # Step 3: Handle multiple customer matches
-       
         if customer_data is None:
             return {"message": "No products found matching the provided names.","mongo_config":uri,"customer_name": customer_name, "product_name": product_data, "quantities": quantities, "store": store , "business_id": business_id, "user_id": user_id}
         elif isinstance(customer_data, dict) and "match_customer_names" in customer_data:
@@ -261,7 +245,6 @@ async def get_selected_customer(request:ProductSelectionRequest):
         if None in product_data:
             i=product_data.index(None)
             return{"message": f"No products found matching the provided name {names[i]} .","mongo_config":uri,"customer_name": customer_name, "product_name": product_names, "quantities": quantities, "store": store , "business_id": business_id, "user_id": user_id}
-        print(customer_data, product_data, quantities, store, business_id)
         return create_invoice(customer_data, product_data, quantities,store ,biller_id, user_id)
 
     except Exception as e:
@@ -282,14 +265,10 @@ async def generate_invoice(request: ChatRequest):
         product_names = extracted["product_names"]
         quantities = extracted["quantities"]
         store= extracted["store"]
-        
         unit_type = extracted[ "unit_type"]
-
         # Step 2: Fetch customer and product data from MongoDB
-        
         customer_data, product_data = fetch_data_from_mongo(customer_name, product_names,business_id, user_id)
         # Step 3: Handle multiple customer matches
-        
         if customer_data is None:
             return {"message": "No products found matching the provided names.","mongo_config":uri,"customer_name": customer_name, "product_name": product_data, "quantities": quantities, "unit_type": unit_type, "store": store , "business_id": business_id, "user_id": user_id}
         elif isinstance(customer_data, dict) and "match_customer_names" in customer_data:
@@ -301,7 +280,6 @@ async def generate_invoice(request: ChatRequest):
         if None in product_data:
             i=product_data.index(None)
             return{"message": f"No products found matching the provided name {names[i]} .","mongo_config":uri,"customer_name": customer_name, "product_name": product_names, "quantities": quantities, "unit_type": unit_type,"store": store , "business_id": business_id, "user_id": user_id}
-        print(customer_data, product_data, quantities, store, business_id)
         return create_invoice(customer_data, product_data, quantities,store ,biller_id, user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
