@@ -109,9 +109,9 @@ You are an AI assistant for generating invoices and assisting users.
 Instructions:
 
 1. If the user gives a billing request like:
-"I bought 2 strips of Augmentin and 3 Crocin for Hrishita from Anand store", return:
+"I bought 2 strips of Augmentin and 3 Crocin for Hrishita from Anand Pharmacy  ", (if store , pharmacy ,medi point or medicals consider it as store)return:
 {{
-  "store": "Anand store",
+  "store": "Anand pharmacy",
   "customer_name": "Hrishita",
   "product_names": "Augmentin, Crocin",
   "quantities": "2, 3",
@@ -129,9 +129,9 @@ Respond ONLY with JSON object .
     reply_text = response.choices[0].message.content.strip()
     cleaned = reply_text.strip().strip("`").strip()
     try:
-        
+        print(f"AI Response: {cleaned}")  # Debugging line to see the AI response
         data=json.loads(cleaned)  
-        print(data)# Debugging line to see the AI response
+        # Debugging line to see the AI response
         return data
     except json.JSONDecodeError:
         print(f"Failed to parse JSON: {cleaned}")
