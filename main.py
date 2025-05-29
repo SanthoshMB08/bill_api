@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
 from groq import Groq
-from pathlib import Path
 from dotenv import load_dotenv
 from typing import List, Optional
 import os
@@ -10,7 +9,6 @@ from bson import ObjectId
 from datetime import datetime
 from fastapi.responses import FileResponse
 import json
-from pydantic import BaseModel, Field
 # ========== Environment Variables ========== 
 load_dotenv()
 GROQ_API_KEY = os.getenv("api_key")
