@@ -106,8 +106,6 @@ def load_db(uri):
     products = db[collections[0]]
     businwess_enities = db[collections[1]]
     challans=db[collections[3]]
-def serialize_mongo_doc(doc):
-    return {k: str(v) if isinstance(v, ObjectId) else v for k, v in doc.items()}
 
 
 def extract_invoice_data(user_text: str):
@@ -178,13 +176,13 @@ def fetch_data_from_mongo(customer_name, product_names, business_id, user_id):
 
     product_data = []
     for name in product_list:
-        match = process.extractOne(name, all_product_names, score_cutoff=80)
-    if match:
-        _, _, idx = match
-        serialized_product = serialize_mongo_doc(all_products[idx])
-        product_data.append(serialized_product)
-    else:
-        product_data.append(None)
+        # Find the best match with a threshold (e.g., 80)
+        match, score, idx = process.extractOne(name, all_product_names, score_cutoff=80)
+        if match:
+            product_data.append(all_products[idx])
+        else:
+            product_data.append(None)
+    
 
     return customer_data, product_data
 
