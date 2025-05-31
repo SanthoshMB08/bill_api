@@ -250,7 +250,7 @@ def create_invoice(customer_data, product_data_list, quantities_raw, store, bill
         totalCost=round(final_amount, 2),
         discount=Discount(rate=discount_rate, amount=discount_amount),
         totalAmountPayable=payable_amount,
-        isDeleted=True,
+        isDeleted=false,
         billerDetails=billerDetails,
         createdAt=datetime.now(),
         updatedAt=datetime.now(),
